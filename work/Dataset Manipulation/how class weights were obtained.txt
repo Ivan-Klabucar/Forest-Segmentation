@@ -1,0 +1,77 @@
+def new_show_value_conuts_for_tif(path):
+    print(f"Showing value counts for {path}")
+    img = cv2.imread(path, -1) #  cv2.IMREAD_UNCHANGED
+    img[img < 0] = 0
+    #img = img // 100
+    print(f'dtype: {img.dtype}, shape: {img.shape}, min: {np.min(img)}, max: {np.max(img)}')
+
+
+    values, counts = np.unique(img, return_counts=True)
+    print(f'np.sum(counts): {np.sum(counts)}')
+    # 7330470 for nks
+    for v,c in zip(values, counts):
+        print(f"value {v} has share {(100*(c/np.sum(counts))):.{4}f}%")
+        if v == 0: print("Value 0  is actually neg inf in actual file")
+
+    disregard_backgrnd = False
+    raveled_img = img.ravel()
+    if disregard_backgrnd: raveled_img = raveled_img[raveled_img > 0]
+    smoothing_factor = 0.03
+    for v in values:
+        if disregard_backgrnd and v == 0: continue
+        raveled_img = np.append(raveled_img, [v] * int(np.sum(counts)*smoothing_factor))
+    print(f'smoothing all class\'s weights by adding {smoothing_factor*100}% of np.sum(counts) of every class, disregarding background class: {disregard_backgrnd}')
+    values = [x for x in values if (x > 0 or not disregard_backgrnd)]
+    print(compute_class_weight(class_weight='balanced', classes=values, y=raveled_img))
+    print()
+
+#show_value_conuts_for_tif('/Users/klabs/Downloads/OneDrive_1_23-05-2023/nks_hrsume.tif')
+new_show_value_conuts_for_tif('/Users/klabs/Downloads/OneDrive_1_23-05-2023/nks.tif')
+#show_value_conuts_for_tif('/Users/klabs/Downloads/OneDrive_1_23-05-2023/train_polygons.tif')
+
+And then the weight for class 7 was manually increased slightly to aid in its recongition:
+[0.19962825,
+ 1.23985772,
+ 1.08779277,
+ 2.61466572,
+ 0.98158784,
+ 3.61027868,
+ 3.2204647,
+ 0.90544988, # manually increased from 0.68544988
+ 2.89362751,
+ 1.46009199,
+ 2.32775901,
+ 2.79981566,
+ 0]
+
+
+For train polygons traineing it was like this:
+smoothing_factor = 0.03
+raveled_total_trained_set = None
+for tmask_path in realTrainMasks:
+    img = cv2.imread(tmask_path, -1) #  cv2.IMREAD_UNCHANGED
+    img[img < 0] = 0
+    values, counts = np.unique(img, return_counts=True)
+    raveled_img = img.ravel()
+    for v in values:
+        raveled_img = np.append(raveled_img, [v] * int(np.sum(counts)*smoothing_factor))
+    if raveled_total_trained_set is None:
+        raveled_total_trained_set = raveled_img
+    else:
+        raveled_total_trained_set = np.append(raveled_total_trained_set, raveled_img)
+        
+
+this was the result:
+class weight of 0.0 is 0.6802767700064816
+class weight of 1.0 is 0.860805874461505
+class weight of 2.0 is 0.766474596412992
+class weight of 3.0 is 2.739745810690325
+class weight of 4.0 is 0.5501021875452016
+class weight of 5.0 is 2.2754550701786496
+class weight of 6.0 is 1.522357976272553
+class weight of 7.0 is 0.35160898476724495
+class weight of 8.0 is 1.080956508247329
+class weight of 9.0 is 1.1075772287750636
+class weight of 10.0 is 2.218479136613627
+class weight of 11.0 is 2.0652176412940286
+class weight of 12.0 is 5.636111304832973
